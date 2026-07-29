@@ -60,9 +60,6 @@ async function tick() {
 }
 
 function start() {
-  if (!config.google.enabled && !config.notion.enabled) {
-    console.warn('[poller] Google Drive / Notion 둘 다 설정되지 않아 감시할 대상이 없습니다.');
-  }
   tick(); // 시작 즉시 1회 실행
   return setInterval(tick, config.pollIntervalMs);
 }

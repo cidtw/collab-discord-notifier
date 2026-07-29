@@ -1,18 +1,16 @@
 {
   "name": "collab-discord-notifier",
-  "version": "1.0.0",
-  "description": "Google Drive / Notion 문서 수정 사항을 폴링 감지해 Discord 채널로 알려주는 봇",
+  "version": "2.0.0",
+  "description": "Google Drive / Notion 문서 수정 사항을 폴링 감지해 Discord 채널로 알려주는 봇 (제로 의존성, Node 내장 기능만 사용)",
   "private": true,
   "type": "commonjs",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node src/index.js",
+    "setup": "node src/setupServer.js",
     "google:authorize": "node src/scripts/googleAuthorize.js"
-  },
-  "dependencies": {
-    "@notionhq/client": "^2.2.15",
-    "discord.js": "^14.16.3",
-    "dotenv": "^16.4.5",
-    "googleapis": "^144.0.0"
   }
 }

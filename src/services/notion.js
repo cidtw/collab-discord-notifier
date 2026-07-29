@@ -1,18 +1,12 @@
-const { Client } = require('@notionhq/client');
 const config = require('../config');
-
-let client = null;
-function getClient() {
-  if (!client) client = new Client({ auth: config.notion.apiKey });
-  return client;
-}
+const notionApi = require('./notionApi');
 
 const userNameCache = new Map();
-async function resolveUserName(userId) {
+async function resolveUserName(apiKey, userId) {
   if (!userId) return undefined;
   if (userNameCache.has(userId)) return userNameCache.get(userId);
   try {
-    const user = await getClient().users.retrieve({ user_id: userId });
+    const user = await notionApi.retrieveUser(apiKey, userId);
     const name = user.name || user.person?.email || userId;
     userNameCache.set(userId, name);
     return name;
@@ -32,25 +26,21 @@ function extractTitle(page) {
   return '(제목 없음)';
 }
 
-async function pageToChange(page) {
+async function pageToChange(apiKey, page) {
   return {
     source: 'notion',
     title: extractTitle(page),
     url: page.url,
-    editor: await resolveUserName(page.last_edited_by?.id),
+    editor: await resolveUserName(apiKey, page.last_edited_by?.id),
     editedAt: page.last_edited_time,
   };
 }
 
-async function fetchAllDatabasePages(databaseId) {
+async function fetchAllDatabasePages(apiKey, databaseId) {
   const pages = [];
   let cursor;
   do {
-    const res = await getClient().databases.query({
-      database_id: databaseId,
-      start_cursor: cursor,
-      page_size: 100,
-    });
+    const res = await notionApi.queryDatabase(apiKey, databaseId, cursor);
     pages.push(...res.results);
     cursor = res.has_more ? res.next_cursor : undefined;
   } while (cursor);
@@ -58,19 +48,40 @@ async function fetchAllDatabasePages(databaseId) {
 }
 
 /**
+ * 이 Integration이 현재 공유(Share)받은 페이지/데이터베이스 목록을 가져온다.
+ * setup 마법사에서 "감시할 대상 고르기" 화면에 쓴다.
+ */
+async function listAccessibleTargets(apiKey) {
+  const results = [];
+  let cursor;
+  do {
+    const res = await notionApi.search(apiKey, cursor);
+    for (const item of res.results) {
+      if (item.object === 'database') {
+        const title = (item.title || []).map((t) => t.plain_text).join('') || '(제목 없음)';
+        results.push({ id: item.id, type: 'database', title, url: item.url });
+      } else if (item.object === 'page') {
+        results.push({ id: item.id, type: 'page', title: extractTitle(item), url: item.url });
+      }
+    }
+    cursor = res.has_more ? res.next_cursor : undefined;
+  } while (cursor);
+  return results;
+}
+
+/**
  * config.notion.pageIds / databaseIds 를 폴링해 last_edited_time 이 바뀐 항목을 찾는다.
  * @param {Record<string, string>} lastEditedTimes id -> 이전에 기록한 ISO 시간
  */
 async function pollNotion(lastEditedTimes) {
+  const apiKey = config.notion.apiKey;
   const changes = [];
   const updated = { ...lastEditedTimes };
-
   const allPages = [];
 
   for (const pageId of config.notion.pageIds) {
     try {
-      const page = await getClient().pages.retrieve({ page_id: pageId });
-      allPages.push(page);
+      allPages.push(await notionApi.retrievePage(apiKey, pageId));
     } catch (err) {
       console.warn(`[notion] 페이지 ${pageId} 조회 실패:`, err.message);
     }
@@ -78,7 +89,7 @@ async function pollNotion(lastEditedTimes) {
 
   for (const databaseId of config.notion.databaseIds) {
     try {
-      const pages = await fetchAllDatabasePages(databaseId);
+      const pages = await fetchAllDatabasePages(apiKey, databaseId);
       allPages.push(...pages);
     } catch (err) {
       console.warn(`[notion] 데이터베이스 ${databaseId} 조회 실패:`, err.message);
@@ -90,7 +101,7 @@ async function pollNotion(lastEditedTimes) {
     if (prev !== page.last_edited_time) {
       if (prev !== undefined) {
         // 최초 실행이 아닐 때만 알림 (첫 실행은 기준선만 기록)
-        changes.push(await pageToChange(page));
+        changes.push(await pageToChange(apiKey, page));
       }
       updated[page.id] = page.last_edited_time;
     }
@@ -99,4 +110,4 @@ async function pollNotion(lastEditedTimes) {
   return { changes, lastEditedTimes: updated };
 }
 
-module.exports = { pollNotion };
+module.exports = { pollNotion, listAccessibleTargets };
