@@ -61,14 +61,16 @@ Discord/Google/Notion은 전부 평범한 REST API + OAuth2라서, SDK 없이 `u
 
 ## 설치 및 실행
 
-Python 3.9 이상만 있으면 된다 (`python --version` 으로 확인). 별도 설치 단계 없음.
+Python 3.10 이상만 있으면 된다 (`python --version` 으로 확인 — 코드가 `str | None` 타입 표기를 써서 3.9에서는 import 단계에서 실패한다). 별도 설치 단계 없음.
 
 ```bash
-cd D:\Dev\projects\collab-discord-notifier
+cd collab-discord-notifier          # 클론한 프로젝트 루트
 # pip install 불필요 (의존성 없음)
-copy .env.example .env   REM GOOGLE_APP_CLIENT_ID/SECRET 만 채우면 됨
-python -m src.setup_server   REM 브라우저가 자동으로 열림 (http://localhost:4600)
+cp .env.example .env                # Windows(cmd): copy .env.example .env — GOOGLE_APP_CLIENT_ID/SECRET 만 채우면 됨
+python -m src.setup_server          # 브라우저가 자동으로 열림 (http://localhost:4600)
 ```
+
+macOS/Linux에서 `python`이 없으면 `python3`로 실행한다.
 
 설정 마법사에서:
 1. **Discord**: Client ID + Bot Token 입력 → "봇 초대 링크 열기"로 서버에 봇 추가 → "토큰 저장 & 서버 불러오기" → 서버/채널 선택 후 저장
@@ -84,7 +86,15 @@ python -m src.main
 - 브라우저를 못 여는 원격 서버 환경이라면 `python -m src.scripts.google_authorize` (CLI 버전, Google 단계만 대체 가능)를 대신 써도 됨.
 - 폴링 주기는 `.env`의 `POLL_INTERVAL_MS` (기본 2분, 밀리초 단위)로 조절.
 - `data/state.json`(폴링 진행 위치)과 `data/config.json`(연결 정보) 둘 다 지우면 완전 초기화됨.
-- 명령은 프로젝트 루트(`D:\Dev\projects\collab-discord-notifier`)에서 `python -m src.xxx` 형태로 실행해야 함 (`python src/main.py` 처럼 직접 실행하면 패키지 상대 경로가 깨짐).
+- 명령은 프로젝트 루트(클론한 `collab-discord-notifier` 폴더)에서 `python -m src.xxx` 형태로 실행해야 함 (`python src/main.py` 처럼 직접 실행하면 패키지 상대 경로가 깨짐).
+
+## 테스트
+
+외부 의존성 없이 표준 라이브러리 `unittest`로 실행한다(네트워크 호출은 모킹).
+
+```bash
+python -m unittest discover -s tests -t .
+```
 
 ## 여러 팀으로 확장 시 (아직 구현 안 함, 방향만 기록)
 
